@@ -115,19 +115,62 @@ def run_ml_prediction(ticker):
 # ==========================================
 
 def show_chart(ticker):
+    print(f"Generating advanced chart for {ticker}...")
     stock = yf.Ticker(ticker)
     df = stock.history(period="1y")
     
+    if df.empty:
+        print("No data to plot.")
+        return
+
+    # --- 1. CALCULATE INDICATORS ---
+    
+    # SMA (Simple Moving Averages)
     df['SMA50'] = df['Close'].rolling(window=50).mean()
     df['SMA200'] = df['Close'].rolling(window=200).mean()
     
-    plt.figure(figsize=(10, 6))
-    plt.plot(df.index, df['Close'], label='Price', color='black')
-    plt.plot(df.index, df['SMA50'], label='SMA 50', color='blue', linestyle='--')
-    plt.plot(df.index, df['SMA200'], label='SMA 200', color='red', linestyle='--')
-    plt.title(f"{ticker} - Technical Chart")
-    plt.legend()
+    # EMA 25 (Exponential Moving Average)
+    # span=25 makes it a 25-day EMA
+    df['EMA25'] = df['Close'].ewm(span=25, adjust=False).mean()
+    
+    # BOLLINGER BANDS
+    # Step 1: Calculate the middle band (usually 20-day SMA)
+    df['BB_Middle'] = df['Close'].rolling(window=20).mean()
+    # Step 2: Calculate Standard Deviation
+    df['BB_Std'] = df['Close'].rolling(window=20).std()
+    # Step 3: Calculate Upper and Lower bands (2 std devs away)
+    df['BB_Upper'] = df['BB_Middle'] + (2 * df['BB_Std'])
+    df['BB_Lower'] = df['BB_Middle'] - (2 * df['BB_Std'])
+
+    # --- 2. PLOT THE CHART ---
+    
+    plt.figure(figsize=(12, 7))
+    
+    # Plot the Price
+    plt.plot(df.index, df['Close'], label='Price', color='black', alpha=0.7, linewidth=1.5)
+    
+    # Plot SMA/EMA
+    plt.plot(df.index, df['EMA25'], label='EMA 25 (Fast Trend)', color='green', linestyle='-', linewidth=1)
+    plt.plot(df.index, df['SMA50'], label='SMA 50', color='blue', linestyle='--', alpha=0.5)
+    # We often hide SMA200 if the chart gets too crowded, but let's keep it for context
+    plt.plot(df.index, df['SMA200'], label='SMA 200 (Long Trend)', color='red', linestyle='--', alpha=0.5)
+
+    # Plot Bollinger Bands
+    # We plot the lines thin and transparent
+    plt.plot(df.index, df['BB_Upper'], label='Bollinger Upper', color='gray', alpha=0.3, linewidth=0.8)
+    plt.plot(df.index, df['BB_Lower'], label='Bollinger Lower', color='gray', alpha=0.3, linewidth=0.8)
+    
+    # FILL THE AREA between the bands (This makes it look professional)
+    plt.fill_between(df.index, df['BB_Upper'], df['BB_Lower'], color='gray', alpha=0.1)
+
+    # Styling
+    plt.title(f"{ticker} - Advanced Technical Analysis")
+    plt.xlabel("Date")
+    plt.ylabel("Price ($)")
+    plt.legend(loc='upper left')
     plt.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
     plt.show()
 
 # ==========================================
